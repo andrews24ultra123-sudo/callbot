@@ -3,19 +3,18 @@ from twilio.twiml.messaging_response import MessagingResponse
 import openai, os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load API keys and variables from .env file
 load_dotenv()
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# OpenAI API key from .env
+# Load OpenAI key from environment
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Hardcoded business info
+# Hardcoded business details
 CALENDLY_URL = "https://calendly.com/andrews24ultra123/30min"
 BUSINESS_NAME = "Test Company"
-WHATSAPP_CONTACT = "+6592222590"
+DISPLAY_WHATSAPP_NUMBER = "+6592222590"  # This is only shown to customers
 
 @app.post("/webhook")
 async def whatsapp_webhook(request: Request):
@@ -23,19 +22,18 @@ async def whatsapp_webhook(request: Request):
     user_msg = form.get("Body")
     user_number = form.get("From")
 
-    # Instruction to GPT
+    # GPT assistant behavior
     system_prompt = f"""
-    You are a friendly, helpful AI receptionist for a business called {BUSINESS_NAME}.
-    When someone sends a WhatsApp message, follow these steps:
-    1. Ask the customer for their name and what service they need.
-    2. Ask what date and time they prefer.
-    3. Then give them this booking link: {CALENDLY_URL}
-    4. Tell them they’ll receive a WhatsApp confirmation after they book.
-
-    Always sound polite, professional, and brief.
+    You are a friendly and helpful virtual receptionist for a business called {BUSINESS_NAME}.
+    Your tasks are:
+    1. Ask for the customer's name and what service they want.
+    2. Ask what date/time they prefer.
+    3. Share the booking link: {CALENDLY_URL}
+    4. Let them know they'll get a WhatsApp confirmation after they book.
+    Be short, polite, and helpful.
     """
 
-    # GPT-3.5 response
+    # Use GPT-3.5-Turbo for generating reply
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -46,10 +44,11 @@ async def whatsapp_webhook(request: Request):
 
     reply = completion.choices[0].message.content
 
-    # WhatsApp reply via Twilio
+    # Build WhatsApp reply via Twilio
     twilio_resp = MessagingResponse()
     twilio_resp.message(
-        reply + f"\n\n📅 Book here: {CALENDLY_URL}\n📞 Contact us at: {WHATSAPP_CONTACT}"
+        reply +
+        f"\n\n📅 Book now: {CALENDLY_URL}" +
+        f"\n📞 Contact us at: {DISPLAY_WHATSAPP_NUMBER}"
     )
     return str(twilio_resp)
-
