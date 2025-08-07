@@ -1,5 +1,5 @@
 fastapi
 uvicorn
-openai
-twilio
 python-dotenv
+twilio
+openai>=1.0.0
