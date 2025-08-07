@@ -4,12 +4,21 @@ from urllib.parse import parse_qs
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+import logging
 
+# Load environment variables
 load_dotenv()
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+
+# Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# FastAPI app
 app = FastAPI()
 
+# Business info
 CALENDLY_URL = "https://calendly.com/andrews24ultra123/30min"
 BUSINESS_NAME = "Test Company"
 DISPLAY_WHATSAPP_NUMBER = "+6592222590"
@@ -30,6 +39,7 @@ async def whatsapp_webhook(request: Request):
     """
 
     try:
+        logging.info("Sending prompt to GPT: %s", user_msg)
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -38,11 +48,12 @@ async def whatsapp_webhook(request: Request):
             ]
         )
         reply_text = response.choices[0].message.content
+        logging.info("GPT Response: %s", reply_text)
     except Exception as e:
-        # Log the error to Railway console
-        print("❌ OpenAI error:", e)
-        reply_text = "Sorry, I had trouble replying just now. Please try again later."
+        logging.error("❌ OpenAI ERROR: %s", str(e))
+        reply_text = "Sorry, there was an error generating your response. Please try again later."
 
+    # Build Twilio response
     twilio_resp = MessagingResponse()
     twilio_resp.message(
         reply_text +
