@@ -1,58 +1,60 @@
 from fastapi import FastAPI, Request
 from twilio.twiml.messaging_response import MessagingResponse
+from urllib.parse import parse_qs
 from openai import OpenAI
 from dotenv import load_dotenv
-from urllib.parse import parse_qs
 import os
 
-# Load environment variables from .env
+# Load your API keys from .env or Railway Variables
 load_dotenv()
-
-# Initialize OpenAI client (for v1+ API)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# FastAPI app
+# Set up your FastAPI app
 app = FastAPI()
 
-# Business config
+# Your business info
 CALENDLY_URL = "https://calendly.com/andrews24ultra123/30min"
 BUSINESS_NAME = "Test Company"
 DISPLAY_WHATSAPP_NUMBER = "+6592222590"
 
 @app.post("/webhook")
 async def whatsapp_webhook(request: Request):
-    # Parse the form manually (Twilio sends x-www-form-urlencoded)
+    # Parse Twilio form input manually
     body = await request.body()
     form = parse_qs(body.decode())
     user_msg = form.get("Body", [""])[0]
-    user_number = form.get("From", [""])[0]
 
-    # System instruction for GPT
+    # GPT-3.5 system prompt
     system_prompt = f"""
-    You are a helpful and friendly AI receptionist for a business called {BUSINESS_NAME}.
-    1. Ask the customer for their name and what service they need.
-    2. Ask for their preferred date and time.
-    3. Share the booking link: {CALENDLY_URL}
-    4. Let them know they'll receive a WhatsApp confirmation after booking.
-    Always keep replies short and polite.
+    You are a helpful, polite AI receptionist for a business called {BUSINESS_NAME}.
+    When someone sends a message:
+    1. Greet them.
+    2. Ask for their name and what service they need.
+    3. Ask for their preferred date and time.
+    4. Give them this booking link: {CALENDLY_URL}
+    5. Say they'll receive confirmation after booking.
+
+    Keep replies short and friendly.
     """
 
-    # Generate GPT response
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_msg}
-        ]
-    )
+    # Call GPT-3.5
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_msg}
+            ]
+        )
+        reply_text = response.choices[0].message.content
+    except Exception as e:
+        reply_text = "Sorry! There was an error talking to OpenAI. Please try again later."
 
-    reply = response.choices[0].message.content
-
-    # Send reply back via Twilio
+    # Build Twilio WhatsApp response
     twilio_resp = MessagingResponse()
     twilio_resp.message(
-        reply +
-        f"\n\n📅 Book now: {CALENDLY_URL}" +
+        reply_text +
+        f"\n\n📅 Book here: {CALENDLY_URL}" +
         f"\n📞 Contact us at: {DISPLAY_WHATSAPP_NUMBER}"
     )
     return str(twilio_resp)
