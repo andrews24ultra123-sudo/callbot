@@ -1,5 +1,6 @@
 fastapi
 uvicorn
-openai>=1.0.0
-twilio
 python-dotenv
+httpx
+openai>=1.0.0
+dateparser
